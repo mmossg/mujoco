@@ -63,6 +63,7 @@ jobs:
   mujoco:
     needs: setup
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
 
     name: "${{ matrix.label }}"
@@ -231,6 +232,7 @@ jobs:
   # Filament is compiled in CI, so ccache here is what keeps the long pole short.
   studio:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04

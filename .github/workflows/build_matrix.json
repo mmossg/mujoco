@@ -4,14 +4,14 @@
     {
       "os": "ubuntu-24.04",
       "label": "ubuntu-24.04-clang-18-full",
-      "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-18 -DCMAKE_CXX_COMPILER:STRING=clang++-18 -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON",
+      "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-18 -DCMAKE_CXX_COMPILER:STRING=clang++-18 -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON -DUSE_STATIC_LIBCXX=OFF",
       "tmpdir": "/tmp",
       "tier": "core"
     },
     {
       "os": "macos-15",
       "label": "macos-15-arm64-full",
-      "cmake_args": "-G Ninja -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON -DCMAKE_CXX_FLAGS=\"-Wno-error=deprecated-declarations\"",
+      "cmake_args": "-G Ninja -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON -DUSE_STATIC_LIBCXX=OFF -DCMAKE_CXX_FLAGS=\"-Wno-error=deprecated-declarations\"",
       "tmpdir": "/tmp",
       "tier": "core"
     },
