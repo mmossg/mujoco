@@ -69,10 +69,14 @@ prepare_python() {
     pushd "${TMPDIR}" > /dev/null
     python -m venv venv
     if [[ $RUNNER_OS == "Windows" ]]; then
-    mkdir venv/bin
-    fixpath="$(s="$(cat venv/Scripts/activate | grep VIRTUAL_ENV=)"; echo "${s:13:-1}")"
-    sed -i "s#$(printf "%q" "${fixpath}")#$(cygpath "${fixpath}")#g" venv/Scripts/activate
-    ln -s ../Scripts/activate venv/bin/activate
+        mkdir -p venv/bin
+        if ! grep -q "cygpath" venv/Scripts/activate; then
+            fixpath="$(grep '^VIRTUAL_ENV=' venv/Scripts/activate | cut -d= -f2- | tr -d '\"')"
+            if [[ -n "${fixpath}" ]]; then
+                sed -i "s#$(printf "%q" "${fixpath}")#$(cygpath "${fixpath}")#g" venv/Scripts/activate
+            fi
+        fi
+        ln -sf ../Scripts/activate venv/bin/activate
     fi
     source venv/bin/activate
     # Install build deps with uv when available (set up by setup-uv in CI on
