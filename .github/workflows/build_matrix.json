@@ -1,10 +1,24 @@
 {
-  "comment": "Build matrix for testing full Windows Clang build with Studio vs existing MSVC studio build",
+  "comment": "Build matrix for testing full unified builds (with Studio) vs existing studio-only builds",
   "include": [
+    {
+      "os": "ubuntu-24.04",
+      "label": "ubuntu-24.04-clang-18-full",
+      "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-18 -DCMAKE_CXX_COMPILER:STRING=clang++-18 -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON",
+      "tmpdir": "/tmp",
+      "tier": "core"
+    },
+    {
+      "os": "macos-15",
+      "label": "macos-15-arm64-full",
+      "cmake_args": "-G Ninja -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON -DCMAKE_CXX_FLAGS=\"-Wno-error=deprecated-declarations\"",
+      "tmpdir": "/tmp",
+      "tier": "core"
+    },
     {
       "os": "windows-2025",
       "label": "windows-2025-clang-full",
-      "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-cl -DCMAKE_CXX_COMPILER:STRING=clang-cl -DCMAKE_SYSTEM_VERSION=\"10.0.26100.0\" -DMUJOCO_BUILD_STUDIO=ON",
+      "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-cl -DCMAKE_CXX_COMPILER:STRING=clang-cl -DCMAKE_SYSTEM_VERSION=\"10.0.26100.0\" -DMUJOCO_BUILD_STUDIO=ON -DMUJOCO_USE_FILAMENT=ON",
       "tmpdir": "C:/Temp",
       "tier": "core"
     }

@@ -233,6 +233,19 @@ jobs:
     strategy:
       matrix:
         include:
+          - os: ubuntu-24.04
+            label: "ubuntu-24.04-clang-18-studio"
+            cmake_args: >-
+              -G Ninja
+              -DCMAKE_C_COMPILER:STRING=clang-18
+              -DCMAKE_CXX_COMPILER:STRING=clang++-18
+              -DMUJOCO_HARDEN:BOOL=ON
+          - os: macos-15
+            label: "macos-15-arm64-studio"
+            cmake_args: >-
+              -G Ninja
+              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+              -DMUJOCO_HARDEN:BOOL=ON
           - os: windows-2025
             label: "windows-2025-ninja-studio"
             cmake_args: >-
