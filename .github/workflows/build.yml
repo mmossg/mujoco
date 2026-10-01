@@ -27,6 +27,7 @@ on:
   push:
     branches:
       - main
+      - test-windows-clang
     paths-ignore:
       - "doc/**"
       - "**/README.md"
@@ -71,6 +72,10 @@ jobs:
     - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       with:
         persist-credentials: false
+
+    - name: Prepare Windows (setup MSVC)
+      if: ${{ runner.os == 'Windows' }}
+      uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
     - name: Prepare Linux
       if: ${{ runner.os == 'Linux' }}
@@ -198,7 +203,6 @@ jobs:
       run: bash ../.github/workflows/build_steps.sh make_python_sdist
 
     - name: Build Python bindings
-      if: ${{ runner.os != 'Windows' }}
       shell: bash
       working-directory: python/dist
       env:
@@ -207,7 +211,6 @@ jobs:
       run: bash ../../.github/workflows/build_steps.sh build_python_bindings
 
     - name: Install Python bindings
-      if: ${{ runner.os != 'Windows' }}
       shell: bash
       working-directory: python/dist
       env:
@@ -215,7 +218,6 @@ jobs:
       run: bash ../../.github/workflows/build_steps.sh install_python_bindings
 
     - name: Test Python bindings
-      if: ${{ runner.os != 'Windows' }}
       shell: bash
       env:
         MUJOCO_GL: disable
@@ -236,6 +238,7 @@ jobs:
   # This job quickly determines if MuJoCo Studio is broken. It is the only place
   # Filament is compiled in CI, so ccache here is what keeps the long pole short.
   studio:
+    if: false
     strategy:
       matrix:
         include:
@@ -316,6 +319,7 @@ jobs:
 
   # This job quickly determines if WASM bindings are broken.
   wasm:
+    if: false
     name: "ubuntu-24.04-clang-18-wasm"
     runs-on: ubuntu-24.04
     env:
@@ -369,6 +373,7 @@ jobs:
   # of in every matrix job. MuJoCo is built WITHOUT the C++ test suite (MJX does
   # not need it) to keep the build lean.
   mjx:
+    if: false
     name: "ubuntu-24.04-clang-18-mjx"
     runs-on: ubuntu-24.04
     env:

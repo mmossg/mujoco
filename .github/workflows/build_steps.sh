@@ -205,9 +205,13 @@ copy_plugins_posix() {
 copy_plugins_window() {
     echo "Copying plugins..."
     mkdir -p ${TMPDIR}/mujoco_install/mujoco_plugin &&
-    cp bin/Release/actuator.dll ${TMPDIR}/mujoco_install/mujoco_plugin &&
-    cp bin/Release/elasticity.dll ${TMPDIR}/mujoco_install/mujoco_plugin &&
-    cp bin/Release/sensor.dll ${TMPDIR}/mujoco_install/mujoco_plugin
+    local dll_dir="bin"
+    if [[ -d "bin/Release" ]]; then
+        dll_dir="bin/Release"
+    fi
+    cp ${dll_dir}/actuator.dll ${TMPDIR}/mujoco_install/mujoco_plugin &&
+    cp ${dll_dir}/elasticity.dll ${TMPDIR}/mujoco_install/mujoco_plugin &&
+    cp ${dll_dir}/sensor.dll ${TMPDIR}/mujoco_install/mujoco_plugin
 }
 
 
