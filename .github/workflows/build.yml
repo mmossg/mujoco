@@ -111,7 +111,7 @@ jobs:
     # fall back to main's cache. ccache on Windows/MSVC is finicky and Windows
     # isn't the bottleneck, so we skip it there.
     - name: Setup ccache
-      if: ${{ runner.os != 'Windows' }}
+      if: ${{ runner.os != 'Windows' || contains(matrix.label, 'clang') }}
       uses: hendrikmuhs/ccache-action@d62db5f07c26379fc4b4e0916f098a92573c3b03 # v1.2.23
       with:
         key: ${{ matrix.label }}
