@@ -1,0 +1,86 @@
+name: build
+
+on:
+  push:
+    branches: [main, deepmind, test-mujoco-mpc]
+  pull_request:
+    branches: [main]
+
+jobs:
+  mujoco_mpc:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            additional_label: "with Clang 13"
+            cmake_args: >-
+              -G Ninja
+              -DCMAKE_C_COMPILER:STRING=clang-13
+              -DCMAKE_CXX_COMPILER:STRING=clang++-13
+              -DMJPC_BUILD_GRPC_SERVICE:BOOL=ON
+            tmpdir: "/tmp"
+          - os: macos-15
+            cmake_args: >-
+              -G Ninja
+              -DMJPC_BUILD_GRPC_SERVICE:BOOL=ON
+            tmpdir: "/tmp"
+
+    name: "MuJoCo MPC on ${{ matrix.os }} ${{ matrix.additional_label }}"
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Prepare Linux
+      if: ${{ runner.os == 'Linux' }}
+      run: >
+        sudo apt-get update && sudo apt-get install
+        libgl1-mesa-dev
+        libwayland-dev
+        libxinerama-dev
+        libxcursor-dev
+        libxkbcommon-dev
+        libxrandr-dev
+        libxi-dev
+        ninja-build
+        zlib1g-dev
+    - name: Prepare macOS
+      if: ${{ runner.os == 'macOS' }}
+      run: brew install ninja zlib
+    - name: Prepare Windows
+      if: ${{ runner.os == 'Windows' }}
+      # Install llvm 16 manually, remove after
+      # https://github.com/actions/runner-images/issues/8125 is resolved and that
+      # version is included in the image by default
+      run: >
+        choco install nasm
+        choco upgrade llvm
+    - name: For the deepmind branch, use MuJoCo HEAD rather than a fixed commit
+      if: ${{ github.ref_name == 'deepmind' || github.ref_name == 'test-mujoco-mpc' }}
+      run:
+        echo "cmake_extra_args=-DMUJOCO_MPC_MUJOCO_GIT_TAG:STRING=test-findorfetch-submodules" > "$GITHUB_ENV"
+    - name: Configure MuJoCo MPC
+      shell: bash
+      run: >
+        mkdir build &&
+        cd build &&
+        cmake .. -DCMAKE_BUILD_TYPE:STRING=Release
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF
+        ${{ matrix.cmake_args }}
+        $cmake_extra_args
+    - name: Build MuJoCo MPC
+      working-directory: build
+      run: cmake --build . --config=Release ${{ matrix.cmake_build_args }}
+    - name: Test MuJoCo MPC
+      working-directory: build
+      run: >
+        cd mjpc/test &&
+        ctest -C Release --output-on-failure .
+    - name: Notify team chat
+      if: failure() && github.repository == 'google-deepmind/mujoco_mpc' && github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'deepmind')
+      uses: google-deepmind/mujoco/.github/actions/notify-chat@main
+      with:
+        service-account-key: ${{ secrets.CHAT_SERVICE_ACCOUNT_KEY }}
+        user-id-map: ${{ secrets.CHAT_USER_ID_MAP }}
+        space-id: "spaces/AAAAzcCLt1A"
+
