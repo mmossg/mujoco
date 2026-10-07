@@ -5480,6 +5480,55 @@ static void compilerLogHandler(const mjLogMessage* msg) {
   }
 }
 
+#if defined(_MSC_VER)
+#define MJ_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define MJ_NOINLINE __attribute__((noinline))
+#else
+#define MJ_NOINLINE
+#endif
+
+// Runs `fn(ctx)` in a dedicated stack frame with no C++ destructors or
+// try/catch blocks so that std::longjmp from compilerLogHandler only ever
+// unwinds pure C frames, never C++ frames compiled with /EHsc.
+MJ_NOINLINE static bool RunEngineCall(void (*fn)(void*), void* ctx) {
+  if (setjmp(error_jmp_buf) != 0) {
+    return false;
+  }
+  fn(ctx);
+  return true;
+}
+
+[[noreturn]] MJ_NOINLINE static void ThrowEngineError() {
+  std::string error_msg = errortext;
+  // also include the last warning that was issued. this is useful for
+  // warnings that came out of plugin implementations.
+  if (warningtext[0]) {
+    error_msg += '\n';
+    error_msg += warningtext;
+  }
+  throw mjCError(0, "engine error: %s", error_msg.c_str());
+}
+
+template <typename F>
+static void CallEngine(F f) {
+  std::jmp_buf prev_buf;
+  std::memcpy(&prev_buf, &error_jmp_buf, sizeof(std::jmp_buf));
+  bool ok = false;
+  try {
+    ok = RunEngineCall([](void* p) { (*static_cast<F*>(p))(); }, &f);
+  } catch (...) {
+    std::memcpy(&error_jmp_buf, &prev_buf, sizeof(std::jmp_buf));
+    throw;
+  }
+  std::memcpy(&error_jmp_buf, &prev_buf, sizeof(std::jmp_buf));
+  if (!ok) {
+    ThrowEngineError();
+  }
+}
+
+#undef MJ_NOINLINE
+
 
 // compiler
 mjModel* mjCModel::Compile(const mjVFS* vfs, mjModel** m) {
@@ -5560,24 +5609,14 @@ mjModel* mjCModel::Compile(const mjVFS* vfs, mjModel** m, bool treeonly, bool te
     if (attached_) {
       throw mjCError(0, "cannot compile child spec if attached by reference to a parent spec");
     }
-    if (setjmp(error_jmp_buf) != 0) {
-      // TryCompile resulted in an mju_error which was converted to a longjmp.
-      std::string error_msg = errortext;
-      // also include the last warning that was issued. this is useful for
-      // warnings that came out of plugin implementations.
-      if (warningtext[0]) {
-        error_msg += '\n';
-        error_msg += warningtext;
+    CallEngine([&]() {
+      if (treeonly) {
+        // an operation on the spec leaves the keyframes as they are
+        CompileTree(vfs, textures, /*keyframes=*/false);
+      } else {
+        TryCompile(*const_cast<mjModel**>(&model), *const_cast<mjData**>(&data), vfs);
       }
-      throw mjCError(0, "engine error: %s", error_msg.c_str());
-    }
-
-    if (treeonly) {
-      // an operation on the spec leaves the keyframes as they are
-      CompileTree(vfs, textures, /*keyframes=*/false);
-    } else {
-      TryCompile(*const_cast<mjModel**>(&model), *const_cast<mjData**>(&data), vfs);
-    }
+    });
   } catch (mjCError err) {
     // deallocate everything allocated in Compile
     mj_deleteModel(model);
@@ -5625,7 +5664,7 @@ static void CompileMesh(mjCMesh*            mesh,
   auto previous_handler = _mjPRIVATE_setTlsLogHandler(compilerLogHandler);
 
   try {
-    mesh->Compile(vfs);
+    CallEngine([&]() { mesh->Compile(vfs); });
   } catch (...) {
     std::lock_guard<std::mutex> lock(exception_mutex);
     if (!exception) { exception = std::current_exception(); }
@@ -5648,7 +5687,7 @@ static void CompileTexture(mjCTexture*         texture,
 
   Clock::time_point t0 = Clock::now();
   try {
-    texture->Compile(vfs);
+    CallEngine([&]() { texture->Compile(vfs); });
   } catch (...) {
     std::lock_guard<std::mutex> lock(exception_mutex);
     if (!exception) { exception = std::current_exception(); }
@@ -6310,13 +6349,13 @@ void mjCModel::TryCompile(mjModel*& m, mjData*& d, const mjVFS* vfs) {
   for (int i = 0; i < m->nkey; i++) { mj_normalizeQuat(m, m->key_qpos + i * m->nq); }
 
   // set constant fields
-  mj_setConst(m, d);
+  CallEngine([&]() { mj_setConst(m, d); });
 
   // automatic spring-damper adjustment
   AutoSpringDamper(m);
 
   // actuator lengthrange computation
-  LengthRange(m, d);
+  CallEngine([&]() { LengthRange(m, d); });
 
   // save automatically-computed statistics, to disambiguate when saving
   extent_auto      = m->stat.extent;
@@ -6360,7 +6399,7 @@ void mjCModel::TryCompile(mjModel*& m, mjData*& d, const mjVFS* vfs) {
     m->opt.enableflags  = enableflags;
   }
 
-  d = mj_makeData(m);
+  CallEngine([&]() { d = mj_makeData(m); });
   if (!d) {
     // m will be deleted by the catch statement in mjCModel::Compile()
     throw mjCError(0, "could not create mjData");
@@ -6380,7 +6419,7 @@ void mjCModel::TryCompile(mjModel*& m, mjData*& d, const mjVFS* vfs) {
   // reset warningtext: engine warnings from validation are not compiler
   // warnings
   warningtext[0] = 0;
-  if (!asleep_init) { mj_step(m, d); }
+  if (!asleep_init) { CallEngine([&]() { mj_step(m, d); }); }
 
   // delete data, restore flags
   mj_deleteData(d);
