@@ -32,7 +32,13 @@ fi
 
 # Ignore the __start_*/__stop_* section bounds the linker itself adds for named
 # sections in linked-in code (e.g. malloc hooks); they aren't part of the API.
-unexpected="$(grep -v -E '^_?mj' <<< "${symbols}" | grep -v -E '^__(start|stop)_' || true)"
+# Also allow C++ symbols in MuJoCo's own namespace (_ZN6mujoco..., _ZZN6mujoco...):
+# some toolchains can't hide inline and thread-local statics with a linker
+# script (GCC 13 on Ubuntu 24.04 exports two), and unlike third-party symbols
+# they can't clash with other libraries.
+unexpected="$(grep -v -E '^_?mj' <<< "${symbols}" |
+  grep -v -E '^__(start|stop)_' |
+  grep -v -E '^_ZZ?N6mujoco' || true)"
 if [[ -n "${unexpected}" ]]; then
   echo "FAIL: ${lib} exports symbols other than mj* and _mj*:"
   echo "${unexpected}" | head -50
