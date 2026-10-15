@@ -262,6 +262,46 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
       run: bash ./.github/workflows/build_steps.sh test_python_bindings
 
+    - name: Setup Python (3.14t)
+      if: ${{ matrix.python_ft }}
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        # Free-threaded counterpart to .github/workflows/python-version.
+        python-version: "3.14t"
+
+    - name: Prepare Python (3.14t)
+      if: ${{ matrix.python_ft }}
+      shell: bash
+      env:
+        TMPDIR: ${{ matrix.tmpdir }}
+      run: bash ./.github/workflows/build_steps.sh prepare_python
+
+    - name: Build Python bindings (3.14t)
+      if: ${{ matrix.python_ft }}
+      shell: bash
+      working-directory: python/dist
+      env:
+        TMPDIR: ${{ matrix.tmpdir }}
+        EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
+        CMAKE_ARGS: ${{ matrix.cmake_args }}
+      run: bash ../../.github/workflows/build_steps.sh build_python_bindings
+
+    - name: Install Python bindings (3.14t)
+      if: ${{ matrix.python_ft }}
+      shell: bash
+      working-directory: python/dist
+      env:
+        TMPDIR: ${{ matrix.tmpdir }}
+      run: bash ../../.github/workflows/build_steps.sh install_python_bindings
+
+    - name: Test Python bindings (3.14t)
+      if: ${{ matrix.python_ft }}
+      shell: bash
+      env:
+        MUJOCO_GL: disable
+        TMPDIR: ${{ matrix.tmpdir }}
+      run: bash ./.github/workflows/build_steps.sh test_python_bindings
+
     # MJX (mujoco.mjx) is covered by the dedicated `mjx` job below; it is
     # compiler-independent so it does not need to run in every matrix job.
 

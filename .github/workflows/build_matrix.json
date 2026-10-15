@@ -1,5 +1,5 @@
 {
-  "comment": "Build matrix for build.yml. 'include' is the CMake 'mujoco' job matrix and 'bazel' is the 'bazel' job matrix. 'tier' controls when an entry runs: 'core' runs on every pull_request and push; 'extended' runs only on push to main (full compiler sweep, and the oldest supported and latest Bazel versions). For Bazel, an empty 'bazel_version' means the version pinned in .bazelversion, and 'disk_cache' keeps a Bazel disk cache across runs (see build.yml). See generate_matrix() in build_steps.sh.",
+  "comment": "Build matrix for build.yml. 'include' is the CMake 'mujoco' job matrix and 'bazel' is the 'bazel' job matrix. 'tier' controls when an entry runs: 'core' runs on every pull_request and push; 'extended' runs only on push to main (full compiler sweep, and the oldest supported and latest Bazel versions). 'python_ft' marks the canonical per-OS entries that also build and test Python 3.14t free-threading bindings. For Bazel, an empty 'bazel_version' means the version pinned in .bazelversion, and 'disk_cache' keeps a Bazel disk cache across runs (see build.yml). See generate_matrix() in build_steps.sh.",
   "include": [
     {
       "os": "ubuntu-24.04",
@@ -27,14 +27,16 @@
       "label": "ubuntu-24.04-arm64-clang-18",
       "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-18 -DCMAKE_CXX_COMPILER:STRING=clang++-18 -DMUJOCO_HARDEN:BOOL=ON -DCMAKE_SHARED_LINKER_FLAGS:STRING=-rtlib=compiler-rt -DCMAKE_EXE_LINKER_FLAGS:STRING=-rtlib=compiler-rt",
       "tmpdir": "/tmp",
-      "tier": "core"
+      "tier": "core",
+      "python_ft": true
     },
     {
       "os": "ubuntu-24.04",
       "label": "ubuntu-24.04-clang-18",
       "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-18 -DCMAKE_CXX_COMPILER:STRING=clang++-18 -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO:BOOL=ON -DMUJOCO_USE_FILAMENT:BOOL=ON -DUSE_STATIC_LIBCXX:BOOL=OFF",
       "tmpdir": "/tmp",
-      "tier": "core"
+      "tier": "core",
+      "python_ft": true
     },
     {
       "os": "ubuntu-24.04",
@@ -62,7 +64,8 @@
       "label": "macos-15-arm64",
       "cmake_args": "-G Ninja -DMUJOCO_HARDEN:BOOL=ON -DMUJOCO_BUILD_STUDIO:BOOL=ON -DMUJOCO_USE_FILAMENT:BOOL=ON -DUSE_STATIC_LIBCXX:BOOL=OFF -DCMAKE_CXX_FLAGS=\"-Wno-error=deprecated-declarations\"",
       "tmpdir": "/tmp",
-      "tier": "core"
+      "tier": "core",
+      "python_ft": true
     },
     {
       "os": "windows-2025",
@@ -77,7 +80,8 @@
       "label": "windows-2025-clang",
       "cmake_args": "-G Ninja -DCMAKE_C_COMPILER:STRING=clang-cl -DCMAKE_CXX_COMPILER:STRING=clang-cl -DCMAKE_SYSTEM_VERSION=\"10.0.26100.0\" -DMUJOCO_BUILD_STUDIO:BOOL=ON -DMUJOCO_USE_FILAMENT:BOOL=ON -DUSE_STATIC_LIBCXX:BOOL=OFF",
       "tmpdir": "C:/Temp",
-      "tier": "core"
+      "tier": "core",
+      "python_ft": true
     }
   ],
   "bazel": [

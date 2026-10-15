@@ -78,6 +78,7 @@ prepare_python() {
     echo "Preparing Python..."
     repo="${PWD}"
     pushd "${TMPDIR}" > /dev/null
+    rm -rf venv
     python -m venv venv
     if [[ $RUNNER_OS == "Windows" ]]; then
         mkdir -p venv/bin
@@ -325,6 +326,7 @@ make_python_sdist() {
 build_python_bindings() {
     echo "Building Python bindings..."
     source ${TMPDIR}/venv/bin/activate
+    rm -f mujoco-*.whl
     # pip unpacks the sdist into a randomized temp dir every run, so the absolute
     # source/include paths differ each time and defeat ccache (0% hit, full
     # recompile). CCACHE_BASEDIR rewrites absolute paths under it to paths relative
