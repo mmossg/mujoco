@@ -16,6 +16,13 @@ exports_files([
     "mujoco_plugin.lds",
 ])
 
+# The header declaring MuJoCo's API, for the shared library's exports test.
+filegroup(
+    name = "mujoco_api_header",
+    srcs = ["include/mujoco/mujoco.h"],
+    visibility = ["//test:__pkg__"],
+)
+
 package_group(
     name = "visibility",
     packages = [
@@ -55,10 +62,17 @@ cc_shared_library(
         "@platforms//os:macos": "libmujoco.dylib",
         "//conditions:default": "libmujoco.so",
     }),
+    # Windows would need a different way to choose the exported symbols.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     user_link_flags = select({
-        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(location :mujoco.exported_symbols)"],
+        "@platforms//os:macos": [
+            "-Wl,-exported_symbols_list,$(execpath :mujoco.exported_symbols)",
+        ],
         "//conditions:default": [
-            "-Wl,--version-script=$(location :mujoco.lds)",
+            "-Wl,--version-script=$(execpath :mujoco.lds)",
         ],
     }),
     visibility = [":visibility"],

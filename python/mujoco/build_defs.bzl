@@ -43,8 +43,8 @@ def mujoco_pybind_extension(name, dynamic_deps = [], **kwargs):  # buildifier: d
         }),
         dynamic_deps = dynamic_deps + [Label("//:mujoco_shared")],
         linkopts = select({
-            macos: ["-Wl,-exported_symbols_list,$(location %s)" % exported_symbols],
-            "//conditions:default": ["-Wl,--version-script=$(location %s)" % lds],
+            macos: ["-Wl,-exported_symbols_list,$(execpath %s)" % exported_symbols],
+            "//conditions:default": ["-Wl,--version-script=$(execpath %s)" % lds],
         }),
         **kwargs
     )

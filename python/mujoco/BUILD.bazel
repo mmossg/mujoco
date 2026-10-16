@@ -41,9 +41,9 @@ cc_shared_library(
         "//conditions:default": "plugin/libactuator.so",
     }),
     user_link_flags = select({
-        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(location //:mujoco_plugin.exported_symbols)"],
+        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(execpath //:mujoco_plugin.exported_symbols)"],
         "//conditions:default": [
-            "-Wl,--version-script=$(location //:mujoco_plugin.lds)",
+            "-Wl,--version-script=$(execpath //:mujoco_plugin.lds)",
         ],
     }),
     deps = ["//plugin/actuator:register"],
@@ -61,9 +61,9 @@ cc_shared_library(
         "//conditions:default": "plugin/libelasticity.so",
     }),
     user_link_flags = select({
-        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(location //:mujoco_plugin.exported_symbols)"],
+        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(execpath //:mujoco_plugin.exported_symbols)"],
         "//conditions:default": [
-            "-Wl,--version-script=$(location //:mujoco_plugin.lds)",
+            "-Wl,--version-script=$(execpath //:mujoco_plugin.lds)",
         ],
     }),
     deps = ["//plugin/elasticity:register"],
@@ -81,9 +81,9 @@ cc_shared_library(
         "//conditions:default": "plugin/libsdf_plugin.so",
     }),
     user_link_flags = select({
-        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(location //:mujoco_plugin.exported_symbols)"],
+        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(execpath //:mujoco_plugin.exported_symbols)"],
         "//conditions:default": [
-            "-Wl,--version-script=$(location //:mujoco_plugin.lds)",
+            "-Wl,--version-script=$(execpath //:mujoco_plugin.lds)",
         ],
     }),
     deps = ["//plugin/sdf:register"],
@@ -101,9 +101,9 @@ cc_shared_library(
         "//conditions:default": "plugin/libsensor.so",
     }),
     user_link_flags = select({
-        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(location //:mujoco_plugin.exported_symbols)"],
+        "@platforms//os:macos": ["-Wl,-exported_symbols_list,$(execpath //:mujoco_plugin.exported_symbols)"],
         "//conditions:default": [
-            "-Wl,--version-script=$(location //:mujoco_plugin.lds)",
+            "-Wl,--version-script=$(execpath //:mujoco_plugin.lds)",
         ],
     }),
     deps = ["//plugin/sensor:register"],
