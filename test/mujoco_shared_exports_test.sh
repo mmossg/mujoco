@@ -13,16 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Checks that the shared MuJoCo library exports exactly MuJoCo's API: every
-# function and variable mujoco.h declares with MJAPI, plus the private
-# _mjPRIVATE_* functions used by the Python bindings, so that engine internals
-# and the bundled third-party libraries stay hidden.
+# Checks that the shared MuJoCo library exports only what MuJoCo's headers
+# declare with MJAPI (like CMake's libmujoco) plus the private _mjPRIVATE_*
+# functions used by the Python bindings, so that engine internals and the
+# bundled third-party libraries stay hidden; and that it exports at least
+# everything mujoco.h declares with MJAPI.
 #
 # Usage: mujoco_shared_exports_test.sh [--exclude=REGEX] <exports> <header>...
 #
-# <exports> lists the library's exported symbols, one per line. The headers
-# must include mujoco.h. --exclude skips API names matching REGEX that the
-# library isn't expected to export.
+# <exports> lists the library's exported symbols, one per line. The headers are
+# all of MuJoCo's headers, including mujoco.h. --exclude skips mujoco.h names
+# matching REGEX that the library isn't expected to export.
 
 set -euo pipefail
 
@@ -77,14 +78,16 @@ allowed="$(mjapi_names 1000 "${headers[@]}")"
 
 # Ignore the __start_*/__stop_* section bounds the linker itself adds for named
 # sections in linked-in code (e.g. malloc hooks); they aren't part of the API.
-# Also allow C++ symbols in MuJoCo's own namespace (_ZN6mujoco..., _ZZN6mujoco...):
-# some toolchains can't hide inline and thread-local statics with a linker
-# script (GCC 13 on Ubuntu 24.04 exports two), and unlike third-party symbols
-# they can't clash with other libraries.
+# Some toolchains also can't hide thread-local and inline statics with a linker
+# script (GCC 13 on Ubuntu 24.04 exports three), so allow those in MuJoCo's own
+# namespace (_ZN6mujoco..., _ZZN6mujoco...) and the thread-local test hook
+# mj_nesterov_momentum; unlike third-party symbols, they can't clash with other
+# libraries.
 unexpected="$(comm -23 <(echo "${symbols}") <(echo "${allowed}") |
   grep -v -E '^_mjPRIVATE_' |
   grep -v -E '^__(start|stop)_' |
-  grep -v -E '^_ZZ?N6mujoco' || true)"
+  grep -v -E '^_ZZ?N6mujoco' |
+  grep -v -x 'mj_nesterov_momentum' || true)"
 if [[ -n "${unexpected}" ]]; then
   echo "FAIL: the library exports symbols that aren't MJAPI or _mjPRIVATE_*:"
   echo "${unexpected}" | head -50
