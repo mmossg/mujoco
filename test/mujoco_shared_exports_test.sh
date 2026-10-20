@@ -13,15 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Checks that the shared MuJoCo library exports MuJoCo's API and nothing else:
-# every function and variable mujoco.h declares with MJAPI, and otherwise only
-# mj* symbols (such as the private _mj* functions used by the Python bindings),
-# so that engine internals and the bundled third-party libraries stay hidden.
+# Checks that the shared MuJoCo library exports exactly MuJoCo's API: every
+# function and variable mujoco.h declares with MJAPI, plus the private
+# _mjPRIVATE_* functions used by the Python bindings, so that engine internals
+# and the bundled third-party libraries stay hidden.
 #
-# Usage: mujoco_shared_exports_test.sh [--exclude=REGEX] <exports> <mujoco.h>
+# Usage: mujoco_shared_exports_test.sh [--exclude=REGEX] <exports> <header>...
 #
-# <exports> lists the library's exported symbols, one per line. --exclude skips
-# API names matching REGEX that the library isn't expected to export.
+# <exports> lists the library's exported symbols, one per line. The headers
+# must include mujoco.h. --exclude skips API names matching REGEX that the
+# library isn't expected to export.
 
 set -euo pipefail
 
@@ -34,9 +35,45 @@ for arg in "$@"; do
   esac
 done
 exports="${positional[0]}"
-header="${positional[1]}"
+headers=("${positional[@]:1}")
+mujoco_h=""
+for header in "${headers[@]}"; do
+  [[ "$(basename "${header}")" == "mujoco.h" ]] && mujoco_h="${header}"
+done
+if [[ -z "${mujoco_h}" ]]; then
+  echo "FAIL: mujoco.h isn't among the headers: ${headers[*]}"
+  exit 1
+fi
 
 symbols="$(sort -u "${exports}")"
+
+# Prints the names declared with MJAPI, e.g. "MJAPI void mj_step(...);" or
+# "MJAPI extern void* (*mju_user_malloc)(size_t);". With max_depth=1, only those
+# outside conditional blocks (other than the include guard).
+mjapi_names() {
+  local max_depth="$1"
+  shift
+  awk -v max_depth="${max_depth}" '
+    /^#[ \t]*if/ { depth++ }
+    /^#[ \t]*endif/ { depth-- }
+    depth <= max_depth && /^MJAPI/ {
+      s = $0
+      sub(/^MJAPI[ \t]+/, "", s)
+      if (match(s, /\(\*[ \t]*[A-Za-z_][A-Za-z0-9_]*/)) {
+        name = substr(s, RSTART + 2, RLENGTH - 2)
+        gsub(/[ \t]/, "", name)
+      } else {
+        sub(/[(\[;].*/, "", s)
+        name = s
+        sub(/.*[^A-Za-z0-9_]/, "", name)
+      }
+      print name
+    }' "$@" | sort -u
+}
+
+# Anything declared with MJAPI may be exported, including names that depend on
+# the build (e.g. the stack functions with AddressSanitizer).
+allowed="$(mjapi_names 1000 "${headers[@]}")"
 
 # Ignore the __start_*/__stop_* section bounds the linker itself adds for named
 # sections in linked-in code (e.g. malloc hooks); they aren't part of the API.
@@ -44,41 +81,25 @@ symbols="$(sort -u "${exports}")"
 # some toolchains can't hide inline and thread-local statics with a linker
 # script (GCC 13 on Ubuntu 24.04 exports two), and unlike third-party symbols
 # they can't clash with other libraries.
-unexpected="$(grep -v -E '^_?mj' <<< "${symbols}" |
+unexpected="$(comm -23 <(echo "${symbols}") <(echo "${allowed}") |
+  grep -v -E '^_mjPRIVATE_' |
   grep -v -E '^__(start|stop)_' |
   grep -v -E '^_ZZ?N6mujoco' || true)"
 if [[ -n "${unexpected}" ]]; then
-  echo "FAIL: the library exports symbols other than mj* and _mj*:"
+  echo "FAIL: the library exports symbols that aren't MJAPI or _mjPRIVATE_*:"
   echo "${unexpected}" | head -50
   exit 1
 fi
 
-# The names mujoco.h declares with MJAPI, outside of conditional blocks (other
-# than its include guard), e.g. "MJAPI void mj_step(...);" or
-# "MJAPI extern void* (*mju_user_malloc)(size_t);".
-api="$(awk '
-  /^#[ \t]*if/ { depth++ }
-  /^#[ \t]*endif/ { depth-- }
-  depth == 1 && /^MJAPI/ {
-    s = $0
-    sub(/^MJAPI[ \t]+/, "", s)
-    if (match(s, /\(\*[ \t]*[A-Za-z_][A-Za-z0-9_]*/)) {
-      name = substr(s, RSTART + 2, RLENGTH - 2)
-      gsub(/[ \t]/, "", name)
-    } else {
-      sub(/[(\[;].*/, "", s)
-      name = s
-      sub(/.*[^A-Za-z0-9_]/, "", name)
-    }
-    print name
-  }' "${header}" | sort -u)"
+# Every unconditional MJAPI name in mujoco.h must be exported.
+api="$(mjapi_names 1 "${mujoco_h}")"
 if [[ -n "${exclude}" ]]; then
   api="$(grep -v -E "${exclude}" <<< "${api}" || true)"
 fi
 
 # Guard against a broken header parse.
 if [[ "$(wc -l <<< "${api}")" -lt 100 ]]; then
-  echo "FAIL: found only $(wc -l <<< "${api}") MJAPI names in ${header}"
+  echo "FAIL: found only $(wc -l <<< "${api}") MJAPI names in ${mujoco_h}"
   exit 1
 fi
 
@@ -89,5 +110,5 @@ if [[ -n "${missing}" ]]; then
   exit 1
 fi
 
-echo "PASS: the library exports $(wc -l <<< "${symbols}") symbols, all mj* or" \
-  "_mj*, including all $(wc -l <<< "${api}") MJAPI names checked from mujoco.h"
+echo "PASS: the library exports $(wc -l <<< "${symbols}") symbols, all MJAPI or" \
+  "_mjPRIVATE_*, including all $(wc -l <<< "${api}") MJAPI names checked from mujoco.h"
