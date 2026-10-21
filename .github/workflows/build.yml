@@ -28,6 +28,7 @@ on:
   push:
     branches:
       - main
+      - test-studio-ci
     paths-ignore:
       - "doc/**"
       - "**/README.md"
@@ -136,7 +137,7 @@ jobs:
       with:
         key: ${{ matrix.label }}-mujoco
         max-size: ${{ contains(matrix.cmake_args, 'MUJOCO_BUILD_STUDIO:BOOL=ON') && '300M' || '150M' }}
-        save: ${{ github.ref_name == 'main' }}
+        save: ${{ github.ref_name == 'main' || github.ref_name == 'test-studio-ci' }}
 
     - name: Cache external dependencies
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -203,6 +204,13 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
       run: bash ../.github/workflows/build_steps.sh copy_plugins_window
 
+    - name: Install MuJoCo Studio platform
+      if: ${{ contains(matrix.cmake_args, 'MUJOCO_BUILD_STUDIO:BOOL=ON') }}
+      shell: bash
+      env:
+        TMPDIR: ${{ matrix.tmpdir }}
+      run: bash ./.github/workflows/build_steps.sh install_studio_platform
+
     - name: Configure samples
       working-directory: sample
       env:
@@ -228,6 +236,10 @@ jobs:
       env:
         CMAKE_BUILD_ARGS: ${{ matrix.cmake_build_args }}
       run: bash ../../.github/workflows/build_steps.sh build_simulate
+
+    - name: Build MuJoCo Studio WASM
+      if: ${{ matrix.label == 'ubuntu-24.04-clang-18' }}
+      run: bash ./.github/workflows/build_steps.sh build_studio_wasm
 
     - name: Make Python sdist
       shell: bash
