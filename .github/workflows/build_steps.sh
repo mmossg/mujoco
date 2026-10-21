@@ -782,16 +782,6 @@ build_studio_wasm() {
     if [[ ! -f build_wasm/CMakeCache.txt ]] ||
        ! grep -q "^MUJOCO_NATIVE_BUILD_DIR:[A-Z]*=${host_dir}\$" build_wasm/CMakeCache.txt; then
         echo "Configuring the web viewer browser client (WASM) with host tools from ${host_dir}..."
-        local host_deps_args=()
-        for src_dir in "${host_dir}/_deps"/*-src; do
-            if [[ -d "${src_dir}" ]]; then
-                local dep_name="${src_dir##*/}"
-                dep_name="${dep_name%-src}"
-                local dep_upper
-                dep_upper="$(echo "${dep_name}" | tr '[:lower:]' '[:upper:]')"
-                host_deps_args+=("-DFETCHCONTENT_SOURCE_DIR_${dep_upper}=${src_dir}")
-            fi
-        done
         emcmake cmake -S . -B build_wasm -G Ninja \
             -DCMAKE_BUILD_TYPE:STRING=Release \
             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF \
@@ -799,8 +789,7 @@ build_studio_wasm() {
             -DMUJOCO_USE_FILAMENT=ON \
             -DMUJOCO_BUILD_TESTS_WASM=OFF \
             -DMUJOCO_NATIVE_BUILD_DIR:PATH="${host_dir}" \
-            ${CCACHE_ARGS} \
-            "${host_deps_args[@]}"
+            ${CCACHE_ARGS}
     fi
     echo "Building the web viewer browser client (WASM)..."
     cmake --build build_wasm --target web_client -j"${NJOBS}"
