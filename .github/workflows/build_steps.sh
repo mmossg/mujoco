@@ -777,12 +777,12 @@ build_studio_wasm() {
 
     local host_dir
     host_dir="$(_resolve_studio_host_dir)"
-    if [[ ! -x "${host_dir}/bin/matc" || ! -x "${host_dir}/bin/resgen" || ! -x "${host_dir}/bin/cmgen" ]]; then
+    if [[ ! -x "${host_dir}/bin/matc" || ! -x "${host_dir}/bin/resgen" || ! -x "${host_dir}/bin/cmgen" || ! -d "${host_dir}/src/render/filament/assets" ]]; then
         if [[ "${host_dir}" == "$(pwd)/build_host" ]]; then
             _configure_studio_host
         fi
-        echo "Building Filament host tools (matc, resgen, cmgen) in ${host_dir}..."
-        cmake --build "${host_dir}" -j"${NJOBS}" --target matc resgen cmgen
+        echo "Building Filament host tools and materials in ${host_dir}..."
+        cmake --build "${host_dir}" -j"${NJOBS}" --target matc resgen cmgen mujoco_filament_assets
     fi
 
     if [[ ! -f build_wasm/CMakeCache.txt ]] ||
