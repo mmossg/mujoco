@@ -643,7 +643,7 @@ build_studio_platform_libs() {
     _configure_studio_host
     echo "Building the Studio platform libraries, assets and engine plugins..."
     cmake --build build_host -j"${NJOBS}" \
-        --target mujoco_studio_platform mujoco_studio_assets actuator elasticity sensor sdf_plugin
+        --target mujoco_studio_platform mujoco_studio_assets matc resgen cmgen actuator elasticity sensor sdf_plugin
 }
 
 
