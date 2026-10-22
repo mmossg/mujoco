@@ -775,9 +775,15 @@ build_studio_wasm() {
     fi
     source emsdk/emsdk_env.sh
 
-    build_studio_platform_libs
     local host_dir
     host_dir="$(_resolve_studio_host_dir)"
+    if [[ ! -x "${host_dir}/bin/matc" || ! -x "${host_dir}/bin/resgen" || ! -x "${host_dir}/bin/cmgen" ]]; then
+        if [[ "${host_dir}" == "$(pwd)/build_host" ]]; then
+            _configure_studio_host
+        fi
+        echo "Building Filament host tools (matc, resgen, cmgen) in ${host_dir}..."
+        cmake --build "${host_dir}" -j"${NJOBS}" --target matc resgen cmgen
+    fi
 
     if [[ ! -f build_wasm/CMakeCache.txt ]] ||
        ! grep -q "^MUJOCO_NATIVE_BUILD_DIR:[A-Z]*=${host_dir}\$" build_wasm/CMakeCache.txt; then
