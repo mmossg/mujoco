@@ -944,6 +944,9 @@ test_bazel() {
     echo "Building and testing MuJoCo with Bazel..."
     bazel test --test_output=errors //...
 
+    echo "Testing Python 3.15 with Bazel..."
+    bazel test --test_output=errors --@rules_python//python/config_settings:python_version=3.15 //python/...
+
     echo "Building standalone sample Bzlmod module..."
     pushd sample > /dev/null
     bazel build //...

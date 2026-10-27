@@ -61,6 +61,12 @@ python = use_extension(
 )
 python.defaults(python_version_file = "//:.github/workflows/python-version")
 
+rules_python_config = use_extension(
+    "@rules_python//python/extensions:config.bzl",
+    "config",
+)
+rules_python_config.explicit_init_py(default = True)
+
 # The version file must name one of these. Changing it to another listed
 # version needs no edit here; a version that isn't listed fails with "No default
 # Python toolchain configured". This matches the versions the wheels support
