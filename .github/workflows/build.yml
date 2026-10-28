@@ -28,6 +28,7 @@ on:
   push:
     branches:
       - main
+      - test-ci-dep-cache
     paths-ignore:
       - "doc/**"
       - "**/README.md"
@@ -110,20 +111,24 @@ jobs:
         # Shared with the Bazel build (MODULE.bazel python.defaults).
         python-version-file: .github/workflows/python-version
 
-    # uv makes the dependency install much faster, with a cross-run cache. POSIX
-    # only: Windows stays on pip (it is not a Python-setup bottleneck, and this
-    # keeps the venv activate fixup path untouched there).
-    - name: Install uv
+    # Cache the uv binary and wheel cache on POSIX so prepare_python can install
+    # both uv and build_requirements*.txt offline on cache hits without fetching
+    # from GitHub or PyPI. Windows stays on pip (it is not a Python-setup
+    # bottleneck, and this keeps the venv activate fixup path untouched there).
+    - name: Cache Python dependencies
       if: ${{ runner.os != 'Windows' }}
-      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
-        enable-cache: true
-        cache-dependency-glob: "python/build_requirements*.txt"
+        path: ${{ runner.temp }}/uv_cache
+        key: uv-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/python-version', '.github/workflows/uv_requirements.txt', 'python/build_requirements*.txt') }}
+        restore-keys: |
+          uv-deps-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Prepare Python
       shell: bash
       env:
         TMPDIR: ${{ matrix.tmpdir }}
+        UV_CACHE_DIR: ${{ runner.temp }}/uv_cache
       run: bash ./.github/workflows/build_steps.sh prepare_python
 
     # ccache dramatically speeds up warm rebuilds. The key is the matrix label so
@@ -142,14 +147,13 @@ jobs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ runner.temp }}/external_deps
-        key: external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-${{ hashFiles('cmake/MujocoDependencies.cmake') }}
+        key: external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-${{ contains(matrix.cmake_args, 'MUJOCO_BUILD_STUDIO:BOOL=ON') && 'studio' || 'core' }}-${{ hashFiles('cmake/**', 'python/mujoco/CMakeLists.txt') }}
         restore-keys: |
-          external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-
+          external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-${{ contains(matrix.cmake_args, 'MUJOCO_BUILD_STUDIO:BOOL=ON') && 'studio' || 'core' }}-
 
     - name: Configure MuJoCo
       env:
         TMPDIR: ${{ matrix.tmpdir }}
-        EXTERNAL_DEPS: "eigen3"
         EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: bash ./.github/workflows/build_steps.sh configure_mujoco
@@ -214,6 +218,7 @@ jobs:
       working-directory: sample
       env:
         TMPDIR: ${{ matrix.tmpdir }}
+        EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: bash ../.github/workflows/build_steps.sh configure_samples
 
@@ -227,6 +232,7 @@ jobs:
       working-directory: simulate
       env:
         TMPDIR: ${{ matrix.tmpdir }}
+        EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: bash ../.github/workflows/build_steps.sh configure_simulate
 
@@ -330,9 +336,10 @@ jobs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ runner.temp }}/external_deps
-        key: external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-${{ hashFiles('cmake/MujocoDependencies.cmake') }}
+        key: external-deps-posix-wasm-${{ hashFiles('cmake/**') }}
         restore-keys: |
-          external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-
+          external-deps-posix-wasm-
+          external-deps-posix-studio-
 
     - name: Build and Test WASM bindings
       env:
@@ -344,7 +351,6 @@ jobs:
 
     - name: Build MuJoCo Studio WASM
       env:
-        EXTERNAL_DEPS: "eigen3"
         EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
         CMAKE_ARGS: ${{ env.cmake_args }}
       run: bash ./.github/workflows/build_steps.sh build_studio_wasm
@@ -386,13 +392,18 @@ jobs:
         # Shared with the Bazel build (MODULE.bazel python.defaults).
         python-version-file: .github/workflows/python-version
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+    - name: Cache Python dependencies
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
-        enable-cache: true
-        cache-dependency-glob: "python/build_requirements*.txt"
+        path: ${{ runner.temp }}/uv_cache
+        key: uv-deps-mjx-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/python-version', '.github/workflows/uv_requirements.txt', 'python/build_requirements*.txt', 'mjx/requirements.txt') }}
+        restore-keys: |
+          uv-deps-mjx-${{ runner.os }}-${{ runner.arch }}-
+          uv-deps-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Prepare Python
+      env:
+        UV_CACHE_DIR: ${{ runner.temp }}/uv_cache
       run: bash ./.github/workflows/build_steps.sh prepare_python
 
     - name: Setup ccache
@@ -406,13 +417,13 @@ jobs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ runner.temp }}/external_deps
-        key: external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-${{ hashFiles('cmake/MujocoDependencies.cmake') }}
+        key: external-deps-posix-mjx-${{ hashFiles('cmake/**', 'python/mujoco/CMakeLists.txt') }}
         restore-keys: |
-          external-deps-${{ runner.os == 'Windows' && 'windows' || 'posix' }}-
+          external-deps-posix-mjx-
+          external-deps-posix-core-
 
     - name: Configure MuJoCo
       env:
-        EXTERNAL_DEPS: "eigen3"
         EXTERNAL_DEPS_DIR: ${{ runner.temp }}/external_deps
       run: bash ./.github/workflows/build_steps.sh configure_mujoco
 
@@ -448,6 +459,8 @@ jobs:
 
     - name: Install MJX
       working-directory: mjx
+      env:
+        UV_CACHE_DIR: ${{ runner.temp }}/uv_cache
       run: bash ../.github/workflows/build_steps.sh install_mjx
 
     - name: Test MJX

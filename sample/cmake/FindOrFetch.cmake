@@ -136,15 +136,47 @@ if(NOT COMMAND FindOrFetch)
         else()
           find_package(Git REQUIRED)
           message(STATUS "mujoco::FindOrFetch: Using FetchContent for ${_ARGS_LIBRARY_NAME}: ${_ARGS_GIT_REPO}")
+          set(_MUJOCO_GIT_RETRY_SCRIPT "${CMAKE_BINARY_DIR}/CMakeFiles/mujoco_git_retry.cmake")
+          if(NOT EXISTS "${_MUJOCO_GIT_RETRY_SCRIPT}")
+            file(WRITE "${_MUJOCO_GIT_RETRY_SCRIPT}"
+              "set(_cmd)\n"
+              "set(_in_cmd FALSE)\n"
+              "foreach(_i RANGE 3 \${CMAKE_ARGC})\n"
+              "  if(_i EQUAL \${CMAKE_ARGC})\n"
+              "    break()\n"
+              "  endif()\n"
+              "  set(_arg \"\${CMAKE_ARGV\${_i}}\")\n"
+              "  if(_in_cmd)\n"
+              "    list(APPEND _cmd \"\${_arg}\")\n"
+              "  elseif(\"\${_arg}\" STREQUAL \"--\")\n"
+              "    set(_in_cmd TRUE)\n"
+              "  endif()\n"
+              "endforeach()\n"
+              "set(_max_attempts 3)\n"
+              "set(_delay 5)\n"
+              "foreach(_attempt RANGE 1 \${_max_attempts})\n"
+              "  execute_process(COMMAND \${_cmd} RESULT_VARIABLE _res)\n"
+              "  if(_res EQUAL 0)\n"
+              "    return()\n"
+              "  endif()\n"
+              "  if(_attempt LESS \${_max_attempts})\n"
+              "    message(WARNING \"Command failed (attempt \${_attempt}/\${_max_attempts}, exit \${_res}); retrying in \${_delay}s: \${_cmd}\")\n"
+              "    execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E sleep \${_delay})\n"
+              "    math(EXPR _delay \"\${_delay} * 2\")\n"
+              "  endif()\n"
+              "endforeach()\n"
+              "message(FATAL_ERROR \"Command failed after \${_max_attempts} attempts: \${_cmd}\")\n"
+            )
+          endif()
           FetchContent_Declare(
             ${_ARGS_LIBRARY_NAME}
             DOWNLOAD_COMMAND
               ${CMAKE_COMMAND} -E rm -rf <SOURCE_DIR>
               COMMAND ${GIT_EXECUTABLE} init <SOURCE_DIR>
               COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> remote add origin ${_ARGS_GIT_REPO}
-              COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> fetch --depth 1 origin ${_ARGS_GIT_TAG}
+              COMMAND ${CMAKE_COMMAND} -P "${_MUJOCO_GIT_RETRY_SCRIPT}" -- ${GIT_EXECUTABLE} -C <SOURCE_DIR> fetch --depth 1 origin ${_ARGS_GIT_TAG}
               COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> -c advice.detachedHead=false checkout FETCH_HEAD
-              COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> submodule update --init --recursive --depth 1
+              COMMAND ${CMAKE_COMMAND} -P "${_MUJOCO_GIT_RETRY_SCRIPT}" -- ${GIT_EXECUTABLE} -C <SOURCE_DIR> submodule update --init --recursive --depth 1
             PATCH_COMMAND ${_WRAPPED_PATCH_COMMAND}
             UPDATE_DISCONNECTED TRUE
           )
