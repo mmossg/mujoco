@@ -183,6 +183,7 @@ _setup_ext_deps_args() {
                 local staged_dir="${target_deps_dir}/${dep_name}-src"
                 if [[ ! -d "${staged_dir}" ]]; then
                     cp -al "${dep_path}" "${staged_dir}" 2>/dev/null || \
+                        cp -RLp "${dep_path}" "${staged_dir}" || \
                         cp -rp "${dep_path}" "${staged_dir}"
                 fi
                 use_path="${staged_dir}"
@@ -225,13 +226,15 @@ _populate_ext_deps_cache() {
     for dep in "${deps[@]}"; do
         local src="${build_dir}/_deps/${dep}-src"
         local dst_name="${dep}"
-        [[ "${dst_name}" == "eigen" ]] && dst_name="eigen3"
+        if [[ "${dst_name}" == "eigen" ]]; then
+            dst_name="eigen3"
+        fi
         local dst="${ext_deps_dir}/${dst_name}"
         if [[ -d "${src}" && ! -d "${dst}" ]]; then
             echo "Populating external dependencies cache for ${dst_name}..."
             mkdir -p "${ext_deps_dir}"
-            cp -rp "${src}" "${dst}"
-            rm -rf "${dst}/.git"
+            rm -rf "${src}/.git"
+            cp -RLp "${src}" "${dst}" || cp -rp "${src}" "${dst}"
         fi
     done
 }

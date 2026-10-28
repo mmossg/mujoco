@@ -60,6 +60,43 @@
 # https://cmake.org/cmake/help/latest/module/FetchContent.html#variables to
 # override this macro behaviour.
 
+if(NOT COMMAND _mujoco_ensure_git_retry_script)
+  macro(_mujoco_ensure_git_retry_script)
+    set(_MUJOCO_GIT_RETRY_SCRIPT "${CMAKE_BINARY_DIR}/CMakeFiles/mujoco_git_retry.cmake")
+    if(NOT EXISTS "${_MUJOCO_GIT_RETRY_SCRIPT}")
+      file(WRITE "${_MUJOCO_GIT_RETRY_SCRIPT}"
+        "set(_cmd)\n"
+        "set(_in_cmd FALSE)\n"
+        "foreach(_i RANGE 3 \${CMAKE_ARGC})\n"
+        "  if(_i EQUAL \${CMAKE_ARGC})\n"
+        "    break()\n"
+        "  endif()\n"
+        "  set(_arg \"\${CMAKE_ARGV\${_i}}\")\n"
+        "  if(_in_cmd)\n"
+        "    list(APPEND _cmd \"\${_arg}\")\n"
+        "  elseif(\"\${_arg}\" STREQUAL \"--\")\n"
+        "    set(_in_cmd TRUE)\n"
+        "  endif()\n"
+        "endforeach()\n"
+        "set(_max_attempts 3)\n"
+        "set(_delay 5)\n"
+        "foreach(_attempt RANGE 1 \${_max_attempts})\n"
+        "  execute_process(COMMAND \${_cmd} RESULT_VARIABLE _res)\n"
+        "  if(_res EQUAL 0)\n"
+        "    return()\n"
+        "  endif()\n"
+        "  if(_attempt LESS \${_max_attempts})\n"
+        "    message(WARNING \"Command failed (attempt \${_attempt}/\${_max_attempts}, exit \${_res}); retrying in \${_delay}s: \${_cmd}\")\n"
+        "    execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E sleep \${_delay})\n"
+        "    math(EXPR _delay \"\${_delay} * 2\")\n"
+        "  endif()\n"
+        "endforeach()\n"
+        "message(FATAL_ERROR \"Command failed after \${_max_attempts} attempts: \${_cmd}\")\n"
+      )
+    endif()
+  endmacro()
+endif()
+
 if(NOT COMMAND FindOrFetch)
   macro(FindOrFetch)
     if(NOT FetchContent)
@@ -136,38 +173,7 @@ if(NOT COMMAND FindOrFetch)
         else()
           find_package(Git REQUIRED)
           message(STATUS "mujoco::FindOrFetch: Using FetchContent for ${_ARGS_LIBRARY_NAME}: ${_ARGS_GIT_REPO}")
-          set(_MUJOCO_GIT_RETRY_SCRIPT "${CMAKE_BINARY_DIR}/CMakeFiles/mujoco_git_retry.cmake")
-          if(NOT EXISTS "${_MUJOCO_GIT_RETRY_SCRIPT}")
-            file(WRITE "${_MUJOCO_GIT_RETRY_SCRIPT}"
-              "set(_cmd)\n"
-              "set(_in_cmd FALSE)\n"
-              "foreach(_i RANGE 3 \${CMAKE_ARGC})\n"
-              "  if(_i EQUAL \${CMAKE_ARGC})\n"
-              "    break()\n"
-              "  endif()\n"
-              "  set(_arg \"\${CMAKE_ARGV\${_i}}\")\n"
-              "  if(_in_cmd)\n"
-              "    list(APPEND _cmd \"\${_arg}\")\n"
-              "  elseif(\"\${_arg}\" STREQUAL \"--\")\n"
-              "    set(_in_cmd TRUE)\n"
-              "  endif()\n"
-              "endforeach()\n"
-              "set(_max_attempts 3)\n"
-              "set(_delay 5)\n"
-              "foreach(_attempt RANGE 1 \${_max_attempts})\n"
-              "  execute_process(COMMAND \${_cmd} RESULT_VARIABLE _res)\n"
-              "  if(_res EQUAL 0)\n"
-              "    return()\n"
-              "  endif()\n"
-              "  if(_attempt LESS \${_max_attempts})\n"
-              "    message(WARNING \"Command failed (attempt \${_attempt}/\${_max_attempts}, exit \${_res}); retrying in \${_delay}s: \${_cmd}\")\n"
-              "    execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E sleep \${_delay})\n"
-              "    math(EXPR _delay \"\${_delay} * 2\")\n"
-              "  endif()\n"
-              "endforeach()\n"
-              "message(FATAL_ERROR \"Command failed after \${_max_attempts} attempts: \${_cmd}\")\n"
-            )
-          endif()
+          _mujoco_ensure_git_retry_script()
           FetchContent_Declare(
             ${_ARGS_LIBRARY_NAME}
             DOWNLOAD_COMMAND
