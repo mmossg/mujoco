@@ -417,7 +417,7 @@ mjtNum _rayMesh(const mjModel* m, const mjData* d, int geomid,
     }
 
     // solve
-    sol = ray_triangle(v, lpnt, lvec, b0, b1, nullptr);
+    sol = mju_rayTriangle(v, lpnt, lvec, b0, b1, nullptr);
 
     // update
     if (sol >= 0 && (x < 0 || sol < x)) {

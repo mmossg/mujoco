@@ -218,6 +218,18 @@ build_mujoco() {
 
 test_mujoco() {
     echo "Testing MuJoCo..."
+    if [[ "${ASAN:-}" != "ON" ]]; then
+        if [[ "$(uname)" == "Linux" && -f lib/libmujoco.so ]]; then
+            nm -D --defined-only lib/libmujoco.so | awk '{print $NF}' | sed 's/@.*$//' > cmake_exports.txt
+            ../test/mujoco_shared_exports_test.sh cmake_exports.txt ../python/mujoco/introspect/functions.py ../include/mujoco/*.h ../src/*/*.h ../src/*/*/*.h
+        elif [[ "$(uname)" == "Darwin" ]]; then
+            local dylib=(lib/mujoco.framework/Versions/A/libmujoco.*.dylib)
+            if [[ -f "${dylib[0]}" ]]; then
+                nm -g --defined-only "${dylib[0]}" | awk '{print $NF}' | sed 's/^_//' > cmake_exports.txt
+                ../test/mujoco_shared_exports_test.sh cmake_exports.txt ../python/mujoco/introspect/functions.py ../include/mujoco/*.h ../src/*/*.h ../src/*/*/*.h
+            fi
+        fi
+    fi
     # ctest defaults to serial. The suite is ~1650 independent tests that use
     # unique temp files (mkstemp / testing::TempDir) and declare no RUN_SERIAL /
     # RESOURCE_LOCK, so running them in parallel is safe.
